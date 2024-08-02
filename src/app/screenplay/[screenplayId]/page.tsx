@@ -62,12 +62,12 @@ export default async function ScreenplayPage({ params }: { params: { screenplayI
     };
 
     // Convert string arrays to ScreenplayElement arrays if necessary
-    const convertToScreenplayElement = (arr: any[]): ScreenplayElement[] => {
+    const convertToScreenplayElement = (arr: (string | ScreenplayElement)[]): ScreenplayElement[] => {
       return arr.map((item, index) => {
         if (typeof item === 'string') {
           return { line_number: index + 1, text: item };
         }
-        return item;
+        return item; // TypeScript already knows it's a ScreenplayElement
       });
     };
 
@@ -78,7 +78,7 @@ export default async function ScreenplayPage({ params }: { params: { screenplayI
 
     // Convert characters to the expected format
     if (Array.isArray(screenplay.characters)) {
-      screenplay.characters = screenplay.characters.map(char => {
+      screenplay.characters = screenplay.characters.map((char) => {
         if (typeof char === 'string') {
           return { name: char, dialogue: [] };
         }

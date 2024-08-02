@@ -4,9 +4,16 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import Image from "next/image";
 
+export interface UserProfile {
+  bio?: string;
+  image?: string;
+  name: string;
+  email: string;
+}
+
 interface ProfileContentProps {
   userId: string;
-  userProfile: any | null;
+  userProfile: UserProfile | null;
   isOwnProfile: boolean;
   sessionUser: {
     name: string;
@@ -16,7 +23,7 @@ interface ProfileContentProps {
 }
 
 export default function ProfileContent({ userId, userProfile, isOwnProfile, sessionUser }: ProfileContentProps) {
-  const [bio, setBio] = useState(userProfile?.bio || "");
+  const [bio, setBio] = useState(userProfile?.bio ?? "");
   const [isEditing, setIsEditing] = useState(!userProfile && isOwnProfile);
 
   const createOrUpdateProfile = api.user.createOrUpdateUserProfile.useMutation({
@@ -69,7 +76,7 @@ export default function ProfileContent({ userId, userProfile, isOwnProfile, sess
       </div>
       <div>
         <h2 className="text-xl font-semibold">Bio</h2>
-        <p>{userProfile?.bio || "No bio provided."}</p>
+        <p>{userProfile?.bio ?? "No bio provided."}</p>
       </div>
       {isOwnProfile && (
         <button

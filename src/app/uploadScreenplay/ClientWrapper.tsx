@@ -1,9 +1,9 @@
-// app/screenplay/ClientWrapper.tsx
+// app/uploadScreenplay/ClientWrapper.tsx
 'use client';
 
 import { SessionProvider } from "next-auth/react";
-import { ReactNode } from 'react';
-import { Session } from "next-auth";
+import type { ReactNode } from 'react';
+import type { Session } from "next-auth";
 
 interface ClientWrapperProps {
   children: ReactNode;

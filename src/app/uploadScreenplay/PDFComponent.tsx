@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import type { PDFDocumentProxy, PDFPageProxy, TextContent, TextItem, TextMarkedContent } from 'pdfjs-dist/types/src/display/api';
 import * as pdfjsLib from 'pdfjs-dist';
-import { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
 
 interface ScreenplayElement {
   line_number: number;
@@ -13,14 +13,14 @@ interface Character {
 }
 
 interface Screenplay {
-    title: string;
-    author: string;
-    preliminaryContent: ScreenplayElement[];
-    scene_headings: ScreenplayElement[];
-    characters: Character[];
-    screen_directions: ScreenplayElement[];
-    dialogues: ScreenplayElement[];
-  }
+  title: string;
+  author: string;
+  preliminaryContent: ScreenplayElement[];
+  scene_headings: ScreenplayElement[];
+  characters: Character[];
+  screen_directions: ScreenplayElement[];
+  dialogues: ScreenplayElement[];
+}
 
 interface ScreenplayFormat {
   sceneHeadingSpaces: number;
@@ -41,40 +41,42 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
 
   useEffect(() => {
     const setupPdfWorker = async () => {
-      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
+      // Import pdf worker module with explicit typing
+      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs') as { default: string };
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default; // Safely access default
     };
-    setupPdfWorker();
+    void setupPdfWorker();
   }, []);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-  
+
     setIsLoading(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      // Type the promise result as PDFDocumentProxy to avoid unsafe assignments
+      const pdf: PDFDocumentProxy = await pdfjsLib.getDocument(arrayBuffer).promise;
       const text = await extractTextFromPdf(pdf);
       setExtractedText(text);
       const lines = text.split('\n');
-      
+
       const titlePageInfo = extractTitlePageInfo(lines);
       let screenplayText = text;
       if (titlePageInfo) {
-        console.log("Title:", titlePageInfo?.title);
-        console.log("Author:", titlePageInfo?.author);
-        
+        console.log("Title:", titlePageInfo.title);
+        console.log("Author:", titlePageInfo.author);
+
         // Find the start of the actual screenplay content
         const { contentStartIndex, includeTitle } = findScreenplayContent(lines);
-        
+
         if (contentStartIndex !== -1) {
           // If we need to include the title, start from the beginning
           // Otherwise, start from the content start index
           screenplayText = lines.slice(includeTitle ? 0 : contentStartIndex).join('\n');
         }
       }
-  
+
       const format = detectScreenplayFormat(screenplayText);
       const screenplay = parseScreenplay(screenplayText.split('\n'), format, titlePageInfo);
       const sceneHeadings = parseSceneHeadings(screenplayText.split('\n'), format);
@@ -95,41 +97,41 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
       setIsLoading(false);
     }
   };
-  
+
   const findScreenplayContent = (lines: string[]): { contentStartIndex: number; includeTitle: boolean } => {
     let titleIndex = -1;
     let contentStartIndex = -1;
     let basedOnIndex = -1;
     let epigraphIndex = -1;
     let includeTitle = false;
-  
+
     for (let i = 0; i < lines.length; i++) {
       const trimmedLine = lines[i]?.trim().toUpperCase() ?? '';
 
-      if (trimmedLine === 'FADE IN:' || 
-          trimmedLine.startsWith('INT') || 
-          trimmedLine.startsWith('EXT') ||
-          trimmedLine.startsWith('INT/EXT')) {
+      if (trimmedLine === 'FADE IN:' ||
+        trimmedLine.startsWith('INT') ||
+        trimmedLine.startsWith('EXT') ||
+        trimmedLine.startsWith('INT/EXT')) {
         contentStartIndex = i;
         break;
       }
-  
+
       // Check for title
       if (titleIndex === -1 && trimmedLine && trimmedLine === trimmedLine.toUpperCase() && trimmedLine.length > 3) {
         titleIndex = i;
       }
-  
+
       // Check for "Based on" section
       if (trimmedLine.startsWith('BASED ON')) {
         basedOnIndex = i;
       }
-  
+
       // Check for epigraphs
       if (trimmedLine.startsWith('EPIGRAPH')) {
         epigraphIndex = i;
         break;
       }
-  
+
       // Check for content that should be included (like in the TENET script)
       if (trimmedLine.includes('ORCHESTRA') || trimmedLine.includes('TERRORIST') || trimmedLine.includes('AUDIENCE')) {
         contentStartIndex = i;
@@ -137,31 +139,31 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
         break;
       }
     }
-  
+
     // If we found epigraphs, start from there
     if (epigraphIndex !== -1) {
       return { contentStartIndex: epigraphIndex, includeTitle: false };
     }
-  
+
     // If we found "Based on" section, start from the next line
     if (basedOnIndex !== -1) {
       return { contentStartIndex: basedOnIndex + 1, includeTitle: false };
     }
-  
+
     // If we found a specific content start, use that
     if (contentStartIndex !== -1) {
       return { contentStartIndex, includeTitle };
     }
-  
+
     // If we only found a title, start from the next line
     if (titleIndex !== -1) {
       return { contentStartIndex: titleIndex + 1, includeTitle: false };
     }
-  
+
     // If we couldn't find any specific start, include everything
     return { contentStartIndex: 0, includeTitle: true };
   };
-  
+
   const detectScreenplayFormat = (text: string): ScreenplayFormat => {
     const lines = text.split('\n');
     let format: ScreenplayFormat = {
@@ -170,7 +172,7 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
       characterNameSpaces: 63,
       dialogueSpaces: 45
     };
-  
+
     for (const line of lines) {
       if (line.length > 0) {
         const leadingSpaces = line.length - line.trimLeft().length;
@@ -187,7 +189,7 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
         }
       }
     }
-  
+
     return format;
   };
 
@@ -196,41 +198,46 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
     let author = '';
     let titleFound = false;
     let authorFound = false;
-  
+
     for (let i = 0; i < Math.min(lines.length, 30); i++) {
-      const line = lines[i]?.trim() ?? '';  
+      const line = lines[i]?.trim() ?? '';
       if (line.length === 0) continue;
-  
+
       if (!titleFound && line === line.toUpperCase() && line.length > 3) {
         title = line;
         titleFound = true;
         // Check if the next line is also in uppercase and part of the title
         if (i + 1 < lines.length && lines[i + 1]?.trim() === lines[i + 1]?.trim().toUpperCase()) {
-          title += ' ' + lines[i + 1]?.trim();
+          title += ' ' + (lines[i + 1]?.trim() ?? '');
           i++;
         }
-      } else if (titleFound && !authorFound && 
-                 (line.toLowerCase().includes('written by') || 
-                  line.toLowerCase().includes('by'))) {
+      } else if (titleFound && !authorFound &&
+        (line.toLowerCase().includes('written by') ||
+          line.toLowerCase().includes('by'))) {
         authorFound = true;
         // Look for the author in the next few lines
         for (let j = i + 1; j < i + 4 && j < lines.length; j++) {
-          const possibleAuthor = lines[j]?.trim();
+          const possibleAuthor = lines[j]?.trim() ?? '';
           if (possibleAuthor && possibleAuthor !== possibleAuthor?.toUpperCase()) {
             author = possibleAuthor;
             break;
           }
         }
       }
-  
+
       if (titleFound && authorFound && author) break;
     }
-  
+
     if (titleFound && authorFound && author) {
       return { title, author };
     }
-  
+
     return null;
+  };
+
+  // Type guard to check if an item is a TextItem
+  function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
+    return (item as TextItem).str !== undefined && (item as TextItem).transform !== undefined;
   }
 
   const formatTextContent = (textItems: TextItem[], format: ScreenplayFormat): string => {
@@ -239,14 +246,19 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
     let lastY = 0;
     let lastX = 0;
   
-    textItems.forEach((item) => {
-      if (Math.abs(lastY - item.transform[5]) > lineHeight / 2) {
+    textItems.forEach((item: TextItem) => {
+      // Safely access transform values
+      const transformX = item.transform[4] as number;
+      const transformY = item.transform[5] as number;
+  
+      if (Math.abs(lastY - transformY) > lineHeight / 2) {
         // New line
         formattedText += '\n';
         lastX = 0;
       }
-      const spaces = Math.max(0, Math.round((item.transform[4] - lastX) / 4)); // Adjust divisor as needed
-      
+  
+      const spaces = Math.max(0, Math.round((transformX - lastX) / 4)); // Calculate spaces based on transformX
+  
       // Determine the number of spaces to add based on the detected format
       let spacesToAdd = spaces;
       if (spaces >= format.sceneHeadingSpaces - 5 && spaces <= format.sceneHeadingSpaces + 5) {
@@ -258,8 +270,8 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
       }
   
       formattedText += ' '.repeat(spacesToAdd) + item.str;
-      lastY = item.transform[5];
-      lastX = item.transform[4] + item.width;
+      lastY = transformY;
+      lastX = transformX + item.width;
     });
   
     return formattedText;
@@ -268,41 +280,54 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
   const extractTextFromPdf = async (pdf: PDFDocumentProxy): Promise<string> => {
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = formatTextContent(textContent.items as TextItem[], { sceneHeadingSpaces: 27, screenDirectionSpaces: 27, characterNameSpaces: 63, dialogueSpaces: 45 });
+      const page: PDFPageProxy = await pdf.getPage(i); // Explicitly type PDFPageProxy
+      const textContent: TextContent = await page.getTextContent();
+  
+      // Filter the items to include only TextItems
+      const textItems: TextItem[] = textContent.items.filter(isTextItem);
+  
+      const pageText = formatTextContent(textItems, {
+        sceneHeadingSpaces: 27,
+        screenDirectionSpaces: 27,
+        characterNameSpaces: 63,
+        dialogueSpaces: 45,
+      });
       fullText += pageText + '\n';
     }
   
     const format = detectScreenplayFormat(fullText);
-    
+  
     // Re-format the text using the detected format
     let formattedText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = formatTextContent(textContent.items as TextItem[], format);
+      const page: PDFPageProxy = await pdf.getPage(i);
+      const textContent: TextContent = await page.getTextContent();
+  
+      // Filter the items to include only TextItems
+      const textItems: TextItem[] = textContent.items.filter(isTextItem);
+  
+      const pageText = formatTextContent(textItems, format);
       formattedText += pageText + '\n';
     }
   
     return formattedText;
-  };
+  };  
 
   const parseScreenplay = (lines: string[], format: ScreenplayFormat, titlePageInfo: TitlePageInfo | null): Screenplay => {
     const screenplay: Screenplay = {
-      title: titlePageInfo?.title || '',
-      author: titlePageInfo?.author || '',
+      title: titlePageInfo?.title ?? '',
+      author: titlePageInfo?.author ?? '',
       preliminaryContent: [],
       scene_headings: [],
       characters: [],
       screen_directions: [],
       dialogues: []
     };
-  
+
     let currentCharacter: string | null = null;
     let currentDialogue: string[] = [];
     let dialogueStartLine: number | null = null;
-  
+
     const finalizeDialogue = () => {
       if (currentDialogue.length > 0 && currentCharacter && dialogueStartLine !== null) {
         const dialogueText = currentDialogue.join(' ').trim();
@@ -323,95 +348,95 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
         dialogueStartLine = null;
       }
     };
-  
+
     const isSceneHeading = (line: string) => {
-        return line?.trim().startsWith('INT') || line?.trim().startsWith('EXT') || line?.trim().startsWith('INT/EXT');
-      };
-    
-      lines.forEach((line, index) => {
-        const trimmedLine = line.trim();
-    
-        if (isSceneHeading(line)) {
-          finalizeDialogue();
-          screenplay.scene_headings.push({ line_number: index + 1, text: trimmedLine });
-        } else if (line.startsWith(' '.repeat(format.characterNameSpaces))) {
-          finalizeDialogue();
-          currentCharacter = trimmedLine.replace(/ \(CONT'D\)$/, '').trim();
-        } else if (line.startsWith(' '.repeat(format.dialogueSpaces)) && currentCharacter) {
-          if (currentDialogue?.length === 0) {
-            dialogueStartLine = index + 1;
-          }
-          currentDialogue.push(trimmedLine);
-        } else if (trimmedLine && !trimmedLine.match(/^\d+\.$/)) { // Ignore page numbers
-          finalizeDialogue();
-          screenplay.screen_directions.push({ line_number: index + 1, text: trimmedLine });
-        }
-      });
-    
-      finalizeDialogue();
-    
-      return screenplay;
+      return line?.trim().startsWith('INT') || line?.trim().startsWith('EXT') || line?.trim().startsWith('INT/EXT');
     };
 
-    const postProcessScreenplay = (screenplay: Screenplay): Screenplay => {
-      // Merge consecutive screen directions
-      const mergedScreenDirections: ScreenplayElement[] = screenplay.screen_directions.reduce((acc, direction) => {
-        const lastDirection = acc[acc.length - 1];
-        
-        if (!lastDirection || direction.line_number !== lastDirection.line_number + 1) {
-          acc.push({ ...direction });
-        } else {
-          lastDirection.text += ' ' + direction.text;
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+
+      if (isSceneHeading(line)) {
+        finalizeDialogue();
+        screenplay.scene_headings.push({ line_number: index + 1, text: trimmedLine });
+      } else if (line.startsWith(' '.repeat(format.characterNameSpaces))) {
+        finalizeDialogue();
+        currentCharacter = trimmedLine.replace(/ \(CONT'D\)$/, '').trim();
+      } else if (line.startsWith(' '.repeat(format.dialogueSpaces)) && currentCharacter) {
+        if (currentDialogue?.length === 0) {
+          dialogueStartLine = index + 1;
         }
-        
-        return acc;
-      }, [] as ScreenplayElement[]);
-    
-      screenplay.screen_directions = mergedScreenDirections;
-    
-      // Handle character name continuations
-      screenplay.characters = screenplay.characters.map(character => {
-        const nameParts = character.name.split('(');
-        const name = nameParts[0]?.trim() ?? '';
-        const continuation = nameParts[1] ? ' (' + nameParts[1].trim() : '';
-        return { ...character, name: name + continuation };
-      });
-    
-      return screenplay;
-    };
+        currentDialogue.push(trimmedLine);
+      } else if (trimmedLine && !trimmedLine.match(/^\d+\.$/)) { // Ignore page numbers
+        finalizeDialogue();
+        screenplay.screen_directions.push({ line_number: index + 1, text: trimmedLine });
+      }
+    });
+
+    finalizeDialogue();
+
+    return screenplay;
+  };
+
+  const postProcessScreenplay = (screenplay: Screenplay): Screenplay => {
+    // Merge consecutive screen directions
+    const mergedScreenDirections: ScreenplayElement[] = screenplay.screen_directions.reduce((acc, direction) => {
+      const lastDirection = acc[acc.length - 1];
+
+      if (!lastDirection || direction.line_number !== lastDirection.line_number + 1) {
+        acc.push({ ...direction });
+      } else {
+        lastDirection.text += ' ' + direction.text;
+      }
+
+      return acc;
+    }, [] as ScreenplayElement[]);
+
+    screenplay.screen_directions = mergedScreenDirections;
+
+    // Handle character name continuations
+    screenplay.characters = screenplay.characters.map(character => {
+      const nameParts = character.name.split('(');
+      const name = nameParts[0]?.trim() ?? '';
+      const continuation = nameParts[1] ? ' (' + nameParts[1].trim() : '';
+      return { ...character, name: name + continuation };
+    });
+
+    return screenplay;
+  };
 
   const parseSceneHeadings = (lines: string[], format: ScreenplayFormat): ScreenplayElement[] => {
     const sceneHeadings: ScreenplayElement[] = [];
-  
+
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      if (line.startsWith(' '.repeat(format.sceneHeadingSpaces)) && 
-          !line.startsWith(' '.repeat(format.sceneHeadingSpaces + 1)) && 
-          trimmedLine.length > 0 &&
-          (trimmedLine.includes('INT') || trimmedLine.includes('EXT')) &&
-          (trimmedLine.startsWith('INT') || trimmedLine.startsWith('EXT') || trimmedLine.startsWith('INT/EXT'))) {
+      if (line.startsWith(' '.repeat(format.sceneHeadingSpaces)) &&
+        !line.startsWith(' '.repeat(format.sceneHeadingSpaces + 1)) &&
+        trimmedLine.length > 0 &&
+        (trimmedLine.includes('INT') || trimmedLine.includes('EXT')) &&
+        (trimmedLine.startsWith('INT') || trimmedLine.startsWith('EXT') || trimmedLine.startsWith('INT/EXT'))) {
         sceneHeadings.push({
           line_number: index + 1,
           text: trimmedLine
         });
       }
     });
-  
+
     return sceneHeadings;
   };
-  
+
   const parseScreenDirections = (lines: string[], format: ScreenplayFormat): ScreenplayElement[] => {
     const screenDirections: ScreenplayElement[] = [];
     let currentDirection: ScreenplayElement | null = null;
-  
+
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      if (line.startsWith(' '.repeat(format.screenDirectionSpaces)) && 
-          !line.startsWith(' '.repeat(format.screenDirectionSpaces + 1)) && 
-          trimmedLine.length > 0 &&
-          !(trimmedLine.includes('INT') || trimmedLine.includes('EXT')) &&
-          !(trimmedLine.startsWith('INT') || trimmedLine.startsWith('EXT') || trimmedLine.startsWith('INT/EXT'))) {
-        
+      if (line.startsWith(' '.repeat(format.screenDirectionSpaces)) &&
+        !line.startsWith(' '.repeat(format.screenDirectionSpaces + 1)) &&
+        trimmedLine.length > 0 &&
+        !(trimmedLine.includes('INT') || trimmedLine.includes('EXT')) &&
+        !(trimmedLine.startsWith('INT') || trimmedLine.startsWith('EXT') || trimmedLine.startsWith('INT/EXT'))) {
+
         if (currentDirection) {
           currentDirection.text += ' ' + trimmedLine;
         } else {
@@ -427,17 +452,17 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
         }
       }
     });
-  
+
     if (currentDirection) {
       screenDirections.push(currentDirection);
     }
-  
+
     return screenDirections;
   };
-  
+
   const downloadTxtFile = () => {
     const element = document.createElement("a");
-    const file = new Blob([extractedText], {type: 'text/plain'});
+    const file = new Blob([extractedText], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = "extracted_screenplay.txt";
     document.body.appendChild(element);
@@ -447,20 +472,20 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
 
   const renderScreenplayElements = () => {
     if (!parsedScreenplay) return null;
-  
+
     const allElements: { type: string; element: ScreenplayElement; characterName?: string }[] = [
       ...parsedScreenplay.scene_headings.map(e => ({ type: 'scene_heading', element: e })),
       ...parsedScreenplay.screen_directions.map(e => ({ type: 'screen_direction', element: e })),
-      ...parsedScreenplay.characters.flatMap(char => 
+      ...parsedScreenplay.characters.flatMap(char =>
         char.dialogue.flatMap(d => [
           { type: 'character', element: { line_number: d.line_number - 1, text: char.name.toUpperCase() } },
           { type: 'dialogue', element: d, characterName: char.name }
         ])
       )
     ];
-  
+
     allElements.sort((a, b) => a.element.line_number - b.element.line_number);
-  
+
     return allElements.map((item, index) => {
       let bgColor, style;
       switch (item.type) {
@@ -484,7 +509,7 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
           bgColor = 'bg-gray-200';
           style = {};
       }
-  
+
       return (
         <div key={index} className="my-2">
           <div className={`p-1 rounded ${bgColor} inline-block`} style={style}>
@@ -505,7 +530,7 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
       />
       {isLoading && <p>Processing PDF...</p>}
       {extractedText && (
-        <button 
+        <button
           onClick={downloadTxtFile}
           className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >

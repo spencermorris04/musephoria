@@ -1,19 +1,26 @@
-// app/pdf-converter/PDFConverterForm.tsx
+// app/uploadScreenplay/PDFConverterForm.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { api } from "~/trpc/react";
 import dynamic from 'next/dynamic';
 import { useSession } from "next-auth/react";
-import { Screenplay } from './PDFComponent'; // Adjust the import path as needed
+import { type Screenplay } from './PDFComponent'; // Adjust the import path as needed
 
-const PDFComponent = dynamic(() => import('./PDFComponent'), { ssr: false });
+const PDFComponent = dynamic(
+  () => import('./PDFComponent').then((mod) => mod.default),
+  { 
+    ssr: false,
+    loading: () => <p>Loading PDF converter...</p>,
+  }
+);
 
 export default function PDFConverterForm() {
   const [parsedScreenplay, setParsedScreenplay] = useState<Screenplay | null>(null);
-
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const { data: session } = useSession();
+
   const uploadMutation = api.screenplayUpload.uploadScreenplay.useMutation({
     onMutate: () => {
       setUploadStatus('uploading');
@@ -28,7 +35,6 @@ export default function PDFConverterForm() {
       setStatusMessage(`Upload failed: ${error.message}`);
     },
   });
-  const { data: session } = useSession();
 
   const handleScreenplayParsed = (screenplay: Screenplay) => {
     setParsedScreenplay(screenplay);

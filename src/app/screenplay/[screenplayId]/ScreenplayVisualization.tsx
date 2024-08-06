@@ -12,15 +12,22 @@ interface Character {
   dialogue: ScreenplayElement[];
 }
 
+interface Scene {
+  heading: ScreenplayElement;
+  screen_directions: ScreenplayElement[];
+  dialogues: {
+    character: string;
+    line: ScreenplayElement;
+  }[];
+}
+
 interface Screenplay {
   id: string;
   title: string;
   author: string;
   preliminaryContent: ScreenplayElement[];
-  scene_headings: ScreenplayElement[];
+  scenes: Scene[];
   characters: Character[];
-  screen_directions: ScreenplayElement[];
-  dialogues: ScreenplayElement[];
 }
 
 interface ScreenplayVisualizationProps {
@@ -30,14 +37,15 @@ interface ScreenplayVisualizationProps {
 const ScreenplayVisualization: React.FC<ScreenplayVisualizationProps> = ({ screenplay }) => {
   const renderScreenplayElements = () => {
     const allElements: { type: string; element: ScreenplayElement; characterName?: string }[] = [
-      ...screenplay.scene_headings.map(e => ({ type: 'scene_heading', element: e })),
-      ...screenplay.screen_directions.map(e => ({ type: 'screen_direction', element: e })),
-      ...screenplay.characters.flatMap(char => 
-        char.dialogue.flatMap(d => [
-          { type: 'character', element: { line_number: d.line_number - 1, text: char.name.toUpperCase() } },
-          { type: 'dialogue', element: d, characterName: char.name }
+      ...screenplay.preliminaryContent.map(e => ({ type: 'preliminary', element: e })),
+      ...screenplay.scenes.flatMap(scene => [
+        { type: 'scene_heading', element: scene.heading },
+        ...scene.screen_directions.map(e => ({ type: 'screen_direction', element: e })),
+        ...scene.dialogues.flatMap(d => [
+          { type: 'character', element: { line_number: d.line.line_number - 1, text: d.character.toUpperCase() } },
+          { type: 'dialogue', element: d.line, characterName: d.character }
         ])
-      )
+      ])
     ];
   
     allElements.sort((a, b) => a.element.line_number - b.element.line_number);
@@ -45,6 +53,10 @@ const ScreenplayVisualization: React.FC<ScreenplayVisualizationProps> = ({ scree
     return allElements.map((item, index) => {
       let bgColor, style;
       switch (item.type) {
+        case 'preliminary':
+          bgColor = 'bg-gray-200';
+          style = { marginLeft: '1.5in', maxWidth: 'calc(100% - 2.5in)' };
+          break;
         case 'scene_heading':
           bgColor = 'bg-blue-200';
           style = { marginLeft: '1.5in', maxWidth: 'calc(100% - 2.5in)' };

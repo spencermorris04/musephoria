@@ -26,11 +26,11 @@ export default async function AllScreenplaysPage() {
     const screenplayData = await caller.screenplayRetrieve.getAllScreenplays();
 
     // Transform the data to match the Screenplay interface
-    const screenplays: Screenplay[] = screenplayData.map(item => ({
-      title: "Untitled", // Default value
-      author: "Unknown", // Default value
-      userId: "unknown", // Default value
-      ...item // This will overwrite the default values if the properties exist in the item
+    const screenplays: Screenplay[] = screenplayData.map((item) => ({
+      id: item.id,
+      title: item.title || "Untitled", // Use default value if title is not provided
+      author: item.author || "Unknown", // Use default value if author is not provided
+      userId: item.userId || "unknown", // Use default value if userId is not provided
     }));
 
     return <AllScreenplaysContent screenplays={screenplays} />;

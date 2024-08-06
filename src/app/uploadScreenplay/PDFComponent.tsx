@@ -12,14 +12,21 @@ interface Character {
   dialogue: ScreenplayElement[];
 }
 
+interface Scene {
+  heading: ScreenplayElement;
+  screen_directions: ScreenplayElement[];
+  dialogues: {
+    character: string;
+    line: ScreenplayElement;
+  }[];
+}
+
 interface Screenplay {
   title: string;
   author: string;
   preliminaryContent: ScreenplayElement[];
-  scene_headings: ScreenplayElement[];
+  scenes: Scene[];
   characters: Character[];
-  screen_directions: ScreenplayElement[];
-  dialogues: ScreenplayElement[];
 }
 
 interface ScreenplayFormat {
@@ -79,15 +86,9 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
 
       const format = detectScreenplayFormat(screenplayText);
       const screenplay = parseScreenplay(screenplayText.split('\n'), format, titlePageInfo);
-      const sceneHeadings = parseSceneHeadings(screenplayText.split('\n'), format);
-      const screenDirections = parseScreenDirections(screenplayText.split('\n'), format);
-      const processedScreenplay = postProcessScreenplay({
-        ...screenplay,
-        scene_headings: sceneHeadings,
-        screen_directions: screenDirections
-      });
+      const processedScreenplay = postProcessScreenplay(screenplay);
       setParsedScreenplay(processedScreenplay);
-      onScreenplayParsed(processedScreenplay); // Call the callback with the processed screenplay
+      onScreenplayParsed(processedScreenplay);
       console.log("Parsed Screenplay JSON:", JSON.stringify(processedScreenplay, null, 2));
     } catch (error) {
       console.error('Error processing PDF:', error);
@@ -318,25 +319,27 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
       title: titlePageInfo?.title ?? '',
       author: titlePageInfo?.author ?? '',
       preliminaryContent: [],
-      scene_headings: [],
-      characters: [],
-      screen_directions: [],
-      dialogues: []
+      scenes: [],
+      characters: []
     };
 
+    let currentScene: Scene | null = null;
     let currentCharacter: string | null = null;
     let currentDialogue: string[] = [];
     let dialogueStartLine: number | null = null;
 
     const finalizeDialogue = () => {
-      if (currentDialogue.length > 0 && currentCharacter && dialogueStartLine !== null) {
+      if (currentDialogue.length > 0 && currentCharacter && dialogueStartLine !== null && currentScene) {
         const dialogueText = currentDialogue.join(' ').trim();
         if (dialogueText) {
           const dialogueElement: ScreenplayElement = {
             line_number: dialogueStartLine,
             text: dialogueText
           };
-          screenplay.dialogues.push(dialogueElement);
+          currentScene.dialogues.push({
+            character: currentCharacter,
+            line: dialogueElement
+          });
           const existingCharacter = screenplay.characters.find(char => char.name === currentCharacter);
           if (existingCharacter) {
             existingCharacter.dialogue.push(dialogueElement);
@@ -358,7 +361,14 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
 
       if (isSceneHeading(line)) {
         finalizeDialogue();
-        screenplay.scene_headings.push({ line_number: index + 1, text: trimmedLine });
+        if (currentScene) {
+          screenplay.scenes.push(currentScene);
+        }
+        currentScene = {
+          heading: { line_number: index + 1, text: trimmedLine },
+          screen_directions: [],
+          dialogues: []
+        };
       } else if (line.startsWith(' '.repeat(format.characterNameSpaces))) {
         finalizeDialogue();
         currentCharacter = trimmedLine.replace(/ \(CONT'D\)$/, '').trim();
@@ -367,32 +377,38 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
           dialogueStartLine = index + 1;
         }
         currentDialogue.push(trimmedLine);
-      } else if (trimmedLine && !trimmedLine.match(/^\d+\.$/)) { // Ignore page numbers
+      } else if (trimmedLine && !trimmedLine.match(/^\d+\.$/) && currentScene) { // Ignore page numbers
         finalizeDialogue();
-        screenplay.screen_directions.push({ line_number: index + 1, text: trimmedLine });
+        currentScene.screen_directions.push({ line_number: index + 1, text: trimmedLine });
+      } else if (trimmedLine && !currentScene) {
+        // If there's content before the first scene heading, add it to preliminaryContent
+        screenplay.preliminaryContent.push({ line_number: index + 1, text: trimmedLine });
       }
     });
 
     finalizeDialogue();
+    if (currentScene) {
+      screenplay.scenes.push(currentScene);
+    }
 
     return screenplay;
   };
 
   const postProcessScreenplay = (screenplay: Screenplay): Screenplay => {
-    // Merge consecutive screen directions
-    const mergedScreenDirections: ScreenplayElement[] = screenplay.screen_directions.reduce((acc, direction) => {
-      const lastDirection = acc[acc.length - 1];
+    // Merge consecutive screen directions within each scene
+    screenplay.scenes = screenplay.scenes.map(scene => {
+      const mergedScreenDirections: ScreenplayElement[] = scene.screen_directions.reduce((acc, direction) => {
+        const lastDirection = acc[acc.length - 1];
+        if (!lastDirection || direction.line_number !== lastDirection.line_number + 1) {
+          acc.push({ ...direction });
+        } else {
+          lastDirection.text += ' ' + direction.text;
+        }
+        return acc;
+      }, [] as ScreenplayElement[]);
 
-      if (!lastDirection || direction.line_number !== lastDirection.line_number + 1) {
-        acc.push({ ...direction });
-      } else {
-        lastDirection.text += ' ' + direction.text;
-      }
-
-      return acc;
-    }, [] as ScreenplayElement[]);
-
-    screenplay.screen_directions = mergedScreenDirections;
+      return { ...scene, screen_directions: mergedScreenDirections };
+    });
 
     // Handle character name continuations
     screenplay.characters = screenplay.characters.map(character => {
@@ -473,19 +489,16 @@ const PDFComponent: React.FC<{ onScreenplayParsed: (screenplay: Screenplay) => v
   const renderScreenplayElements = () => {
     if (!parsedScreenplay) return null;
 
-    const allElements: { type: string; element: ScreenplayElement; characterName?: string }[] = [
-      ...parsedScreenplay.scene_headings.map(e => ({ type: 'scene_heading', element: e })),
-      ...parsedScreenplay.screen_directions.map(e => ({ type: 'screen_direction', element: e })),
-      ...parsedScreenplay.characters.flatMap(char =>
-        char.dialogue.flatMap(d => [
-          { type: 'character', element: { line_number: d.line_number - 1, text: char.name.toUpperCase() } },
-          { type: 'dialogue', element: d, characterName: char.name }
-        ])
-      )
-    ];
+    const allElements: { type: string; element: ScreenplayElement; characterName?: string }[] = parsedScreenplay.scenes.flatMap(scene => [
+      { type: 'scene_heading', element: scene.heading },
+      ...scene.screen_directions.map(e => ({ type: 'screen_direction', element: e })),
+      ...scene.dialogues.flatMap(d => [
+        { type: 'character', element: { line_number: d.line.line_number - 1, text: d.character.toUpperCase() } },
+        { type: 'dialogue', element: d.line, characterName: d.character }
+      ])
+    ]);
 
     allElements.sort((a, b) => a.element.line_number - b.element.line_number);
-
     return allElements.map((item, index) => {
       let bgColor, style;
       switch (item.type) {

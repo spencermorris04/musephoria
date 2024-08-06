@@ -2,36 +2,39 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, TRPCError } from "~/server/api/trpc";
 import firestore from "~/server/firestore";
 
+const ScreenplayElementSchema = z.object({
+  line_number: z.number(),
+  text: z.string()
+});
+
+const DialogueSchema = z.object({
+  character: z.string(),
+  line: ScreenplayElementSchema
+});
+
+const SceneSchema = z.object({
+  heading: ScreenplayElementSchema,
+  screen_directions: z.array(ScreenplayElementSchema),
+  dialogues: z.array(DialogueSchema)
+});
+
+const CharacterSchema = z.object({
+  name: z.string(),
+  dialogue: z.array(ScreenplayElementSchema)
+});
+
+const ScreenplaySchema = z.object({
+  title: z.string(),
+  author: z.string(),
+  preliminaryContent: z.array(ScreenplayElementSchema),
+  scenes: z.array(SceneSchema),
+  characters: z.array(CharacterSchema)
+});
+
 export const screenplayUploadRouter = createTRPCRouter({
   uploadScreenplay: protectedProcedure
     .input(z.object({
-      screenplay: z.object({
-        title: z.string(),
-        author: z.string(),
-        preliminaryContent: z.array(z.object({
-          line_number: z.number(),
-          text: z.string()
-        })),
-        scene_headings: z.array(z.object({
-          line_number: z.number(),
-          text: z.string()
-        })),
-        characters: z.array(z.object({
-          name: z.string(),
-          dialogue: z.array(z.object({
-            line_number: z.number(),
-            text: z.string()
-          }))
-        })),
-        screen_directions: z.array(z.object({
-          line_number: z.number(),
-          text: z.string()
-        })),
-        dialogues: z.array(z.object({
-          line_number: z.number(),
-          text: z.string()
-        }))
-      })
+      screenplay: ScreenplaySchema
     }))
     .mutation(async ({ ctx, input }) => {
       try {

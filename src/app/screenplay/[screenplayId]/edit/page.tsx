@@ -2,9 +2,8 @@ import { notFound } from "next/navigation";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { getServerAuthSession } from "~/server/auth";
-import ScreenplayVisualization from "./ScreenplayVisualization";
+import ScreenplayChunks from "./ScreenplayChunks"; // Import the ScreenplayChunks component
 
-// Define types to match ScreenplayVisualization component
 interface ScreenplayElement {
   line_number: number;
   text: string;
@@ -17,22 +16,6 @@ interface Scene {
     character: string;
     line: ScreenplayElement;
   }[];
-}
-
-interface Character {
-  name: string;
-  dialogue: ScreenplayElement[];
-}
-
-interface Screenplay {
-  id: string;
-  title: string;
-  author: string;
-  scenes: Scene[];
-  summary?: string;
-  beatSheet?: BeatSheet;
-  preliminaryContent: ScreenplayElement[];
-  characters: Character[];
 }
 
 interface BeatSheet {
@@ -53,7 +36,16 @@ interface BeatSheet {
   finalImage: string;
 }
 
-export default async function ScreenplayPage({ params }: { params: { screenplayId: string } }) {
+interface Screenplay {
+  id: string;
+  title: string;
+  author: string;
+  scenes: Scene[];
+  summary?: string; // Optional field for summary
+  beatSheet?: BeatSheet; // Optional field for beat sheet
+}
+
+export default async function EditScreenplayPage({ params }: { params: { screenplayId: string } }) {
   const session = await getServerAuthSession();
 
   if (!session) {
@@ -70,27 +62,21 @@ export default async function ScreenplayPage({ params }: { params: { screenplayI
       notFound();
     }
 
-    // Create a default screenplay structure
-    const defaultScreenplay: Screenplay = {
-      id: screenplayData.id,
-      title: "Untitled",
-      author: "Unknown",
-      scenes: [],
-      preliminaryContent: [],
-      characters: [],
-    };
-
-    // Merge screenplayData with defaultScreenplay
+    // Create a default screenplay structure, including summary and beatSheet
     const screenplay: Screenplay = {
-      ...defaultScreenplay,
-      ...screenplayData,
+      id: screenplayData.id,
+      title: screenplayData.title || "Untitled",
+      author: screenplayData.author || "Unknown",
+      scenes: screenplayData.scenes || [],
+      summary: screenplayData.summary || '', // Initialize with existing summary if available
+      beatSheet: screenplayData.beatSheet ?? undefined, // Convert null to undefined
     };
 
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">{screenplay.title}</h1>
         <p className="text-xl mb-4">By {screenplay.author}</p>
-        <ScreenplayVisualization screenplay={screenplay} />
+        <ScreenplayChunks screenplay={screenplay} />
       </div>
     );
   } catch (error) {

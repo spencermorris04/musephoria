@@ -3,17 +3,26 @@ import { screenplayUploadRouter } from "~/server/api/routers/screenplayUpload"; 
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { screenplayRetrieveRouter } from "~/server/api/routers/screenplayRetrieve";
 import { userRouter } from "~/server/api/routers/user";
+import { screenplayProcessRouter } from "~/server/api/routers/screenplayProcess";
+import { summarizeRouter } from "~/server/api/routers/summarize";
+import { beatsheetRouter } from "./routers/beatsheetGenerator";
+import { beatsheetUploaderRouter } from "./routers/beatsheetUploader";
 
 /**
  * This is the primary router for your server.
  *
  * All routers added in /api/routers should be manually added here.
  */
+
 export const appRouter = createTRPCRouter({
   post: postRouter,
   screenplayUpload: screenplayUploadRouter,
   screenplayRetrieve: screenplayRetrieveRouter,
+  screenplayProcess: screenplayProcessRouter,
   user: userRouter,
+  summarize: summarizeRouter,
+  beatsheetGenerator: beatsheetRouter,
+  beatsheetUploader: beatsheetUploaderRouter,
 });
 
 // export type definition of API

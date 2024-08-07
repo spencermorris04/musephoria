@@ -1,24 +1,33 @@
-// src/server/api/routers/beatsheetGenerator.ts
-
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import { env } from "~/env.js";
 
+// Initialize OpenAI with the API key
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
 });
+
+// Define a Zod schema for the beat sheet
+const Beat = z.object({
+  beat: z.string(),    // Define the 'beat' property as a string
+  content: z.string(), // Define the 'content' property as a string
+});
+
+// Define a schema for the array of beats
+const BeatSheetSchema = z.array(Beat); // Define the BeatSheet as an array of Beat objects
 
 export const beatsheetRouter = createTRPCRouter({
   generateBeatSheet: protectedProcedure
     .input(
       z.object({
-        summary: z.string(),
+        summary: z.string(), // Expect a 'summary' string input from the user
       })
     )
     .mutation(async ({ input }) => {
       try {
-        const response = await openai.chat.completions.create({
+        const completion = await openai.beta.chat.completions.parse({
           model: "gpt-4o-mini",
           messages: [
             {
@@ -40,84 +49,36 @@ Format your response as a JSON array where each beat is an object with a "beat" 
 
 Write the output in such a way that it could be directly parsed as json. That means that you should not include 'Json' at the beginning or any other text that is not part of the json structure.
 
-Again, assume that the summary represents the full screenplay. DO NOT TAKE ONE PART OF THE SCREENPLAY AND FOCUS THE ENTIRE BEAT SHEET ON IT. The Dark Knight of the Soul should be near the end of the screenplay, certainly not in the first half.
+Again, assume that the summary represents the full screenplay. DO NOT TAKE ONE PART OF THE SCREENPLAY AND FOCUS THE ENTIRE BEAT SHEET ON IT. The Dark Night of the Soul should be near the end of the screenplay, certainly not in the first half.
 
 The beat sheet must be linear! This means that the events MUST OCCUR in the same order as they do in the summary provided.
-
-This is what the output should look like:
-
-[
-  {
-    "beat": "Opening Image (1%)",
-    "content": "[Describe the opening image]"
-  },
-  {
-    "beat": "Theme Stated (5%)",
-    "content": "[State the theme]"
-  },
-  {
-    "beat": "Set-Up (1-10%)",
-    "content": "[Describe the set-up]"
-  },
-  {
-    "beat": "Catalyst (10%)",
-    "content": "[Describe the catalyst]"
-  },
-  {
-    "beat": "Debate (10-20%)",
-    "content": "[Describe the debate]"
-  },
-  {
-    "beat": "Break into Two (20%)",
-    "content": "[Describe the break into two]"
-  },
-  {
-    "beat": "B Story (22%)",
-    "content": "[Describe the B Story]"
-  },
-  {
-    "beat": "Fun and Games (20-50%)",
-    "content": "[Describe the fun and games section]"
-  },
-  {
-    "beat": "Midpoint (50%)",
-    "content": "[Describe the midpoint]"
-  },
-  {
-    "beat": "Bad Guys Close In (50-75%)",
-    "content": "[Describe how the bad guys close in]"
-  },
-  {
-    "beat": "All is Lost (75%)",
-    "content": "[Describe the all is lost moment]"
-  },
-  {
-    "beat": "Dark Night of the Soul (75-80%)",
-    "content": "[Describe the dark night of the soul]"
-  },
-  {
-    "beat": "Break into Three (80%)",
-    "content": "[Describe the break into three]"
-  },
-  {
-    "beat": "Finale (80-99%)",
-    "content": "[Describe the finale]"
-  },
-  {
-    "beat": "Final Image (99-100%)",
-    "content": "[Describe the final image]"
-  }
-]`,
+`,
             },
           ],
           max_tokens: 3000,
           temperature: 0.7,
+          response_format: zodResponseFormat(BeatSheetSchema, "beat_sheet"),  // Use the zodResponseFormat with BeatSheetSchema
         });
 
-        // Return the generated JSON string directly
-        return {
-          beatSheet: response.choices[0]?.message.content?.trim() ?? "Failed to generate beat sheet.",
-        };
+        // Check if the choices array is not empty and contains the expected data
+        if (completion.choices && completion.choices.length > 0) {
+          const choice = completion.choices[0];
+          
+          // Check if the response contains a refusal
+          if (choice?.message?.refusal) {
+            throw new Error("Model refused to fulfill the request.");
+          }
+
+          // Parse the structured data from the response
+          const beatSheet = choice?.message?.parsed;
+          
+          // Return the structured data directly
+          return {
+            beatSheet: beatSheet ?? "Failed to generate beat sheet.",
+          };
+        } else {
+          throw new Error("No choices returned in the response.");
+        }
       } catch (error) {
         console.error("Error generating beat sheet:", error);
         throw new Error("Failed to generate beat sheet");

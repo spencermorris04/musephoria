@@ -150,8 +150,13 @@ const ScreenplayChunks: React.FC<ScreenplayChunksProps> = ({ screenplay }) => {
         summary: fullSummary,
       });
   
+      // Ensure beatSheetResult.beatSheet is a string
+      const beatSheetString = typeof beatSheetResult.beatSheet === 'string'
+        ? beatSheetResult.beatSheet
+        : JSON.stringify(beatSheetResult.beatSheet);
+  
       // Parse the JSON string response and cast it to Beat[]
-      const beatSheetData: Beat[] = JSON.parse(beatSheetResult.beatSheet);
+      const beatSheetData: Beat[] = JSON.parse(beatSheetString);
   
       // Map parsed data to BeatSheet interface
       const parsedBeatSheet = mapBeatSheet(beatSheetData);
@@ -163,7 +168,7 @@ const ScreenplayChunks: React.FC<ScreenplayChunksProps> = ({ screenplay }) => {
     } finally {
       setIsProcessingBeatSheet(false);
     }
-  };  
+  };
 
   const getBeatFriendlyName = (beat: string): string => {
     const beatMap: Record<string, string> = {

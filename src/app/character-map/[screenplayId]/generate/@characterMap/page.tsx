@@ -7,7 +7,7 @@ import { useCharacterContext } from '../CharacterContext';
 export default function CharacterMapPage() {
   const { characterData, updateCharacterData } = useCharacterContext();
 
-  const handleChange = (newData: any) => {
+  const handleChange = (newData: Record<string, unknown>) => {
     updateCharacterData('characterMap', newData);
   };
 

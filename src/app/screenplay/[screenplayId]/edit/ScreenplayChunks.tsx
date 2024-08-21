@@ -197,49 +197,49 @@ const mapBeatSheet = (data: Beat[]): BeatSheet => {
   
     data.forEach((beat) => {
       switch (beat.beat) {
-        case "Opening Image (1%)":
+        case "Opening Image":
           beatSheet.openingImage = beat.content;
           break;
-        case "Theme Stated (5%)":
+        case "Theme Stated":
           beatSheet.themeStated = beat.content;
           break;
-        case "Set-Up (1-10%)":
+        case "Set-Up":
           beatSheet.setup = beat.content;
           break;
-        case "Catalyst (10%)":
+        case "Catalyst":
           beatSheet.catalyst = beat.content;
           break;
-        case "Debate (10-20%)":
+        case "Debate":
           beatSheet.debate = beat.content;
           break;
-        case "Break into Two (20%)":
+        case "Break into Two":
           beatSheet.breakIntoTwo = beat.content;
           break;
-        case "B Story (22%)":
+        case "B Story":
           beatSheet.bStory = beat.content;
           break;
-        case "Fun and Games (20-50%)":
+        case "Fun and Games":
           beatSheet.funAndGames = beat.content;
           break;
-        case "Midpoint (50%)":
+        case "Midpoint":
           beatSheet.midpoint = beat.content;
           break;
-        case "Bad Guys Close In (50-75%)":
+        case "Bad Guys Close In":
           beatSheet.badGuysCloseIn = beat.content;
           break;
-        case "All is Lost (75%)":
+        case "All Is Lost":
           beatSheet.allIsLost = beat.content;
           break;
-        case "Dark Night of the Soul (75-80%)":
+        case "Dark Night of the Soul":
           beatSheet.darkNightOfTheSoul = beat.content;
           break;
-        case "Break into Three (80%)":
+        case "Break into Three":
           beatSheet.breakIntoThree = beat.content;
           break;
-        case "Finale (80-99%)":
+        case "Finale":
           beatSheet.finale = beat.content;
           break;
-        case "Final Image (99-100%)":
+        case "Final Image":
           beatSheet.finalImage = beat.content;
           break;
         default:
@@ -249,7 +249,7 @@ const mapBeatSheet = (data: Beat[]): BeatSheet => {
     });
   
     return beatSheet as BeatSheet;
-  };  
+  };
 
   const handleBeatSheetChange = (beat: keyof BeatSheet, value: string) => {
     if (beatSheet) {

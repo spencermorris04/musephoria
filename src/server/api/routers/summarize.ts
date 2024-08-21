@@ -28,7 +28,7 @@ export const summarizeRouter = createTRPCRouter({
             },
             {
               role: "user",
-              content: `Provide a detailed scene-by-scene summary of the following screenplay chunk. Be as specific as possible, use character names instead of pronouns, and ensure all plot points are included. Do not number the scene as this is just part of the screenplay, not necessarily the beginning.
+              content: `Provide a detailed scene-by-scene summary of the following screenplay chunk. Be as specific as possible, use character names instead of pronouns, and ensure all plot points are included. Do not number the scene as this is just part of the screenplay, not necessarily the beginning. The scenes are not explicitly defined (there are scene headings but there can be multiple in a scene) so use your own judgement to split the screenplay into multiple scenes, creating your own more broad scene headings (i.e. Int. School rather than having a bunch of scene headings for a walk and talk scene).
 
 ${input.chunk}
 
@@ -37,11 +37,11 @@ ${input.chunk}
 You should 
 
 Format your response as follows:
-**Scene Heading Content 1**
-[Detailed summary of the first scene]
+**Scene Heading Synthesis 1*
+[Detailed summary of the first 'scene']
 
-**Scene Heading Content 2**
-[Detailed summary of the second scene]
+**Scene Heading Synthesis 2**
+[Detailed summary of the second 'scene']
 
 ...and so on for each scene in the chunk.
 

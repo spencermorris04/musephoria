@@ -1,14 +1,20 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import firestore from "~/server/firestore";
+import { TRPCError } from "@trpc/server";
 
-// Extend the screenplaySchema with optional summary, beatSheet, and userId
+// Define a schema for the character without dialogue
+const characterWithoutDialogueSchema = z.object({
+  name: z.string(),
+});
+
+// Extend the existing screenplaySchema
 const screenplaySchema = z.object({
   id: z.string(),
   title: z.string(),
   author: z.string(),
-  userId: z.string(), // Add userId field
-  summary: z.string().optional(), // Make summary field optional
+  userId: z.string(),
+  summary: z.string().optional(),
   beatSheet: z
     .object({
       openingImage: z.string(),
@@ -27,7 +33,7 @@ const screenplaySchema = z.object({
       finale: z.string(),
       finalImage: z.string(),
     })
-    .optional(), // Make the entire beatSheet object optional
+    .optional(),
   preliminaryContent: z.array(
     z.object({ line_number: z.number(), text: z.string() })
   ),
@@ -57,6 +63,55 @@ const screenplaySchema = z.object({
 
 
 export const screenplayRetrieveRouter = createTRPCRouter({
+
+  getScreenplayCharacters: protectedProcedure
+  .input(z.object({ screenplayId: z.string() }))
+  .query(async ({ input }) => {
+    try {
+      const screenplayDoc = await firestore
+        .collection("screenplays")
+        .doc(input.screenplayId)
+        .get();
+
+      if (!screenplayDoc.exists) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: "Screenplay not found",
+        });
+      }
+
+      const screenplayData = screenplaySchema.parse({
+        id: screenplayDoc.id,
+        ...screenplayDoc.data(),
+      });
+
+      // Extract unique characters from the screenplay
+      const uniqueCharacters = new Set<string>();
+
+      // Add characters from the characters array
+      screenplayData.characters.forEach(char => uniqueCharacters.add(char.name));
+
+      // Add characters from dialogues in scenes
+      screenplayData.scenes.forEach(scene => {
+        scene.dialogues.forEach(dialogue => uniqueCharacters.add(dialogue.character));
+      });
+
+      // Convert the Set to an array of character objects
+      const characters = Array.from(uniqueCharacters).map(name => ({ name }));
+
+      return characterWithoutDialogueSchema.array().parse(characters);
+    } catch (error) {
+      console.error("Error retrieving screenplay characters:", error);
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: "Failed to retrieve screenplay characters",
+      });
+    }
+  }),
+
   getUserScreenplays: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ input }) => {

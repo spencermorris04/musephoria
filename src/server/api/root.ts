@@ -7,7 +7,9 @@ import { screenplayProcessRouter } from "~/server/api/routers/screenplayProcess"
 import { summarizeRouter } from "~/server/api/routers/summarize";
 import { beatsheetRouter } from "./routers/beatsheetGenerator";
 import { beatsheetUploaderRouter } from "./routers/beatsheetUploader";
-
+import { characterSheetGeneratorRouter } from "./routers/characterSheetGenerator";
+import { characterSheetUploaderRouter } from "./routers/characterSheetUploader";
+import { characterSheetRetrieverRouter } from "./routers/characterSheetRetriever";
 /**
  * This is the primary router for your server.
  *
@@ -23,6 +25,9 @@ export const appRouter = createTRPCRouter({
   summarize: summarizeRouter,
   beatsheetGenerator: beatsheetRouter,
   beatsheetUploader: beatsheetUploaderRouter,
+  characterSheetGenerator: characterSheetGeneratorRouter,
+  characterSheetUploader: characterSheetUploaderRouter,
+  characterSheetRetriever: characterSheetRetrieverRouter,
 });
 
 // export type definition of API

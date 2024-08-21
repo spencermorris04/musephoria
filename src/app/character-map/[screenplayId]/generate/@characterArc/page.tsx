@@ -6,7 +6,7 @@ import { useCharacterContext } from '../CharacterContext'
 export default function CharacterArcPage() {
   const { characterData, updateCharacterData } = useCharacterContext();
 
-  const handleChange = (newData: any) => {
+  const handleChange = (newData: Record<string, unknown>) => {
     updateCharacterData('characterArc', newData);
   };
 
